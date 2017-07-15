@@ -6,6 +6,7 @@ switch (env) {
         break;
     case 'development':
         process.env.MONGODB_URI = "mongodb://localhost/todos";
+        process.env.PORT = 3000;
         break;
     case 'test':
         process.env.PORT = 3000;

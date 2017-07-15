@@ -2,7 +2,8 @@ require("./settings/config");
 
 const express = require("express"),
       app = express(),
-      bodyParser = require("body-parser");
+      bodyParser = require("body-parser"),
+      _ = require("lodash");
       
 var {mongoose} = require("./database/db"),
     {Todo} = require("./models/todo"),
@@ -27,7 +28,7 @@ app.get("/todos", (req, res) => {
     }, err => {
         res.status(400).send(err);
     });
-})
+});
 
 app.get("/todos/:id", (req, res) => {
     if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -58,6 +59,31 @@ app.delete("/todos/:id", (req, res) => {
     }).catch(err => {
         res.status(400).send(err);
     });
+});
+
+app.put("/todos/:id", (req, res) => {
+    var id = req.params.id;
+    if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).send("Invalid id");
+    }
+
+    var body = _.pick(req.body, ['text', 'completed']);
+
+    if(_.isBoolean(body.completed) && body.completed) {
+        body.completedAt = new Date().getTime();
+    } else {
+        body.completed = false;
+        body.completedAt = null;
+    }
+
+    Todo.findByIdAndUpdate(id, body, {new: true})
+    .then(todo => {
+        if(!todo) {
+            return res.status(404).send();
+        }
+
+        res.send({todo});
+    }).catch(err => res.status(400).send());
 });
 
 app.listen(process.env.PORT, process.env.IP);

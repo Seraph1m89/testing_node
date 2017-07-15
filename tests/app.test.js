@@ -1,4 +1,4 @@
-const expect = require("expect"),
+const {expect} = require("chai"),
       request = require("supertest"),
       mongoose = require("mongoose");
       
@@ -27,15 +27,15 @@ describe("POST /todos", () => {
         .send({text})
         .expect(200)
         .expect((res) => {
-           expect(res.body.text).toBe(text); 
+           expect(res.body.text).to.equal(text); 
         })
         .end((err, res) => {
             if(err) {
                 return done(err);
             }
             Todo.find({text}).then((todos) => {
-                expect(todos.length).toBe(1);
-                expect(todos[0].text).toBe(text);
+                expect(todos).to.have.length(1);
+                expect(todos[0].text).to.equal(text);
                 done();
             }).catch(err => done(err));
         });
@@ -47,14 +47,14 @@ describe("POST /todos", () => {
        .send({})
        .expect(400)
        .expect(res => {
-           expect(res.body.message).toBe("Todo validation failed: text: Path `text` is required.");
+           expect(res.body.message).to.equal("Todo validation failed: text: Path `text` is required.");
        })
        .end((err, res) => {
            if(err) {
                return done(err);
            }
            Todo.find().then(todos => {
-               expect(todos.length).toBe(2);
+               expect(todos).to.have.length(2);
                done();
            })
            .catch(err => done(err));
@@ -68,7 +68,7 @@ describe("GET /todos", () => {
        .get("/todos")
        .expect(200)
        .expect(res => {
-           expect(res.body.todos.length).toBe(2);
+           expect(res.body.todos).to.have.length(2);
        })
        .end((err,res) => {
            if(err) {
@@ -85,15 +85,14 @@ describe("GET /todos/:id", () => {
         .get(`/todos/${todos[0]._id}`)
         .expect(200)
         .expect(res => {
-            expect(res.body.todo._id).toBe(todos[0]._id.toHexString());
-            expect(res.body.todo.text).toBe(todos[0].text);
+            expect(res.body.todo._id).to.equal(todos[0]._id.toHexString());
+            expect(res.body.todo.text).to.equal(todos[0].text);
         })
         .end((err, res) => {
            if(err) {
                return done(err);
            } 
-           
-           return done();
+           done();
         });
     });
     
@@ -102,7 +101,7 @@ describe("GET /todos/:id", () => {
         request(app)
         .get(`/todos/${id}`)
         .expect(res => {
-            expect(res.todo).toNotExist();
+            expect(res.todo).to.be.undefined;
         })
         .expect(404)
         .end((err, res) => {
@@ -133,7 +132,7 @@ describe("DELETE /todos/:id", () => {
        .delete(`/todos/${id}`)
        .expect(200)
        .expect(res => {
-           expect(res.body.todo._id).toBe(todos[0]._id.toHexString());
+           expect(res.body.todo._id).to.equal(todos[0]._id.toHexString());
        })
        .end((err, res) => {
            if(err) {
@@ -141,10 +140,10 @@ describe("DELETE /todos/:id", () => {
            }
            
            Todo.find().then(data => {
-               expect(data.length).toBe(1);
+               expect(data).to.have.lengthOf(1);
                return Todo.findById(todos[0]._id);
            }).then(todo => {
-               expect(todo).toNotExist();
+               expect(todo).to.be.null;
                done();
            }).catch(err => done(err));
        });
@@ -159,7 +158,7 @@ describe("DELETE /todos/:id", () => {
            if(err) {
                return done(err);
            }
-           Todo.find().then(items => {expect(items.length).toBe(2)
+           Todo.find().then(items => {expect(items).to.have.lengthOf(2)
                done();
            }).catch(err => { if(err) {
                    done(err);
@@ -174,17 +173,88 @@ describe("DELETE /todos/:id", () => {
       request(app)
       .delete(`/todos/${id}`)
       .expect(404)
-      .expect(res => expect(res.body.todo).toNotExist())
+      .expect(res => expect(res.body.todo).to.be.undefined)
       .end((err, res) => {
           if(err) {
               return done(err);
           }
           
           Todo.find().then(items => {
-              expect(items.length).toBe(2);
+              expect(items.length).to.equal(2);
               done()
           })
           .catch(err => done(err));
       })
    });
+});
+
+describe("PUT /todos/:id", () => {
+    it("Should update todo", done => {
+        var updatedTodo = {
+            text: "Updated todo",
+            completed: true
+        }
+
+        request(app)
+        .put(`/todos/${todos[0]._id}`)
+        .send(updatedTodo)
+        .expect(200)
+        .expect(res => {
+            expect(res.body.todo.text).to.equal(updatedTodo.text);
+            expect(res.body.todo.completed).to.be.a("boolean");
+            expect(res.body.todo.completed).to.equal(updatedTodo.completed);
+            expect(res.body.todo.completedAt).to.exist;
+        })
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+            done();
+        });
+    });
+
+    it("Should not add additional properties to object", done => {
+        var additionalUpdate = {
+            script: "This will do no good"
+        }
+
+        request(app)
+        .put(`/todos/${todos[0]._id}`)
+        .expect(200)
+        .expect(res => {
+            expect(res.body.todo.script).to.be.undefined;
+        })
+        .end(err => {
+            if(err) {
+                return done(err);
+            }
+            done();
+        });
+    });
+
+    it("Should be malformed id", done => {
+        request(app)
+        .put("/todos/12345")
+        .expect(400)
+        .end(err => {
+            if(err) {
+                return done(err);
+            }
+            done();
+        });
+    });
+
+    it("Should not find item by given id", done => {
+        var id = new mongoose.Types.ObjectId();
+
+        request(app)
+        .put(`/todo/${id}`)
+        .expect(404)
+        .end(err => {
+            if(err) {
+                return done(err);
+            }
+            done();
+        });
+    });
 });
