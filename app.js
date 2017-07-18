@@ -7,7 +7,8 @@ const express = require("express"),
       
 var {mongoose} = require("./database/db"),
     {Todo} = require("./models/todo"),
-    {User} = require("./models/user");
+    {User} = require("./models/user"),
+    {authenticate} = require("./middleware/authenticate");
       
 app.use(bodyParser.json());
 
@@ -105,6 +106,10 @@ app.post("/users", (req, res) => {
     .catch(err => {
         res.status(400).send(err);
     })
+});
+
+app.get("/users/me", authenticate, (req, res) => {
+    res.send(res.locals.user);
 });
 
 app.listen(process.env.PORT, process.env.IP);
