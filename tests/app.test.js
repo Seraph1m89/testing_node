@@ -1,23 +1,15 @@
 const {expect} = require("chai"),
       request = require("supertest"),
-      mongoose = require("mongoose");
+      mongoose = require("mongoose"),
+      jwt = require("jsonwebtoken");
       
 const {app} = require("../app"),
-      {Todo} = require("../models/todo");
+      {Todo} = require("../models/todo"),
+      {User} = require("./../models/user"),
+      {todos, users, populateTodos, populateUsers} = require("./seed/seed");
 
-const todos = [{
-    _id: new mongoose.Types.ObjectId,
-    text: "First test todo"
-}, {
-    _id: new mongoose.Types.ObjectId,
-    text: "Second test todo"
-}];
-
-beforeEach((done) => {
-   Todo.remove({}).then(() => {
-        return Todo.insertMany(todos);
-    }).then(() => done()); 
-});
+beforeEach(populateUsers);
+beforeEach(populateTodos);
 
 describe("POST /todos", () => {
     it("Should create a new todo", (done) => {
@@ -257,4 +249,153 @@ describe("PUT /todos/:id", () => {
             done();
         });
     });
+});
+
+describe("/GET users/me", () => {
+    it("Should return user if authenticated", done => {
+        request(app)
+        .get("/users/me")
+        .set("x-auth", users[0].tokens[0].token)
+        .expect(200)
+        .expect(res => {
+            expect(res.body.email).to.be.equal(users[0].email);
+            expect(res.body._id).to.be.equal(users[0]._id.toHexString());
+        })
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+            
+            done();
+        });
+    });
+
+    it("Should return 401 for not authenticated user", done => {
+        request(app)
+        .get("/users/me")
+        .expect(401)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+            expect(res.body).to.be.empty;
+
+            done();
+        });
+    });
+
+    it("Should return 401 for incorrect token", done => {
+        request(app)
+        .get("/users/me")
+        .set("x-auth", jwt.sign({_id: users[0]._id, access: "auth"}, "1234").toString())
+        .expect(401)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+            expect(res.body).to.be.empty;            
+
+            done();
+        });
+    });
+});
+
+describe("/POST users", () => {
+
+    it("Should create new user", done => {
+        var newUser = {
+            email: "someNewEmail@someEmail.com",
+            password: "123456"
+        };
+        request(app)
+        .post("/users")
+        .send(newUser)
+        .expect(200)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+
+            expect(res.body.email).to.be.equal(newUser.email);
+            expect(res.body._id).to.be.a('string');
+            expect(res.headers["x-auth"]).to.exist;
+
+            User.findOne({email: newUser.email})
+            .then(user => {
+                expect(user).to.exist;
+                expect(user.email).to.be.equal(newUser.email);
+                expect(user.password).to.not.equal(newUser.password);
+                done();
+            })
+            .catch(err => done(err));
+        });
+    });
+
+    it("Should return email validation error", done => {
+        var newUser = {
+            email: "someNewEmail@someinvalidemail",
+            password: "123456"
+        };
+        request(app)
+        .post("/users")
+        .send(newUser)
+        .expect(400)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+
+            expect(res.body.errors).to.exist;
+            expect(res.body.errors.email).to.exist;
+
+            User.findOne({email: newUser.email})
+            .then(user => {
+                expect(user).to.not.exist;
+                done();
+            })
+            .catch(err => done(err));
+        });
+    });
+
+    it("Should return password validation error", done => {
+        var newUser = {
+            email: "someNewEmail@someEmail.com",
+            password: "12345"
+        };
+        request(app)
+        .post("/users")
+        .send(newUser)
+        .expect(400)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+
+            expect(res.body.errors).to.exist;
+            expect(res.body.errors.password).to.exist;
+
+            User.findOne({email: newUser.email})
+            .then(user => {
+                expect(user).to.not.exist;
+                done();
+            })
+            .catch(err => done(err));
+        });
+    });
+
+    it("Should not create user if email already taken", done => {
+        request(app)
+        .post("/users")
+        .send(users[0])
+        .expect(400)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+
+            expect(res.body.code).to.be.equal(11000);
+            done();
+        });
+    });
+
 });
