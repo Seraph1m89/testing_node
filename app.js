@@ -112,6 +112,17 @@ app.get("/users/me", authenticate, (req, res) => {
     res.send(res.locals.user);
 });
 
+app.post("/users/login", (req, res) => {
+    var body = _.pick(req.body, ["email", "password"]);
+
+    User.findByCredentials(body.email, body.password)
+    .then(user => user.generateAuthToken())
+    .then(token => res.setHeader("x-auth", token).send())
+    .catch(err => {
+        res.status(401).send(err);
+    });
+});
+
 app.listen(process.env.PORT, process.env.IP);
 
 module.exports = {app};
