@@ -117,9 +117,19 @@ app.post("/users/login", (req, res) => {
 
     User.findByCredentials(body.email, body.password)
     .then(user => user.generateAuthToken())
-    .then(token => res.setHeader("x-auth", token).send())
+    .then(token => res.header("x-auth", token).send())
     .catch(err => {
         res.status(401).send(err);
+    });
+});
+
+app.delete("/users/me/token", authenticate, (req, res) => {
+    res.locals.user.removeToken(res.locals.token)
+    .then(() => {
+        res.send();
+    })
+    .catch(err => {
+        res.status(400).send();
     });
 });
 

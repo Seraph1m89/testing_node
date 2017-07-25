@@ -397,5 +397,95 @@ describe("/POST users", () => {
             done();
         });
     });
+});
 
+describe("/POST users/login", () => {
+
+    it("Should return token", done => {
+        request(app)
+        .post("/users/login")
+        .send({email: users[1].email, password: users[1].password})
+        .expect(200)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+            expect(res.header["x-auth"]).to.exist;
+
+            User.findById(users[1]._id)
+            .then(user => {
+                expect(user.tokens[0]).to.include({
+                    access: "auth",
+                    token: res.headers["x-auth"]
+                })
+                done();
+            })
+            .catch(err => {
+                done(err);
+            });
+        });
+    });
+
+    it("Should return status 401", done => {
+        request(app)
+        .post("/users/login")
+        .send({email: users[1].email, password: users[1].password + 1})
+        .expect(401)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+
+            expect(res.headers["x-auth"]).to.not.exist;
+            User.findById(users[1]._id)
+            .then(user => {
+                expect(user.tokens).to.have.length(0);
+                done();
+            })
+            .catch(err => {
+                done(err);
+            });
+        });
+    });
+});
+
+describe("DELETE /users/me/token", () => {
+    it("Should delete token", done => {
+        request(app)
+        .delete("/users/me/token")
+        .set("x-auth", users[0].tokens[0].token)
+        .expect(200)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+
+            expect(res.body).to.be.empty;
+            User.findById(users[0]._id)
+            .then(user => {
+                expect(user).to.exist;
+                expect(user.tokens).to.have.lengthOf(0);
+                done();
+            });    
+        });
+    });
+
+    it("Should return 400 and keep token", done => {
+        request(app)
+        .delete("/users/me/token")
+        .set("x-auth", users[0].tokens.token + 1)
+        .expect(401)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+
+            User.findById(users[0]._id)
+            .then(user => {
+                expect(user).to.exist;
+                expect(user.tokens).to.have.lengthOf(1);
+                done();
+            });
+        });
+    });
 });
