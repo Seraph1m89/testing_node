@@ -4,27 +4,33 @@ const {Todo} = require("./../../models/todo"),
       jwt = require("jsonwebtoken");
 
 const userOneId = new mongoose.Types.ObjectId;
-const usetTwoId = new mongoose.Types.ObjectId;
+const userTwoId = new mongoose.Types.ObjectId;
 const users = [{
     _id: userOneId,
     email: "denis.test@test.test",
     password: "testpass",
     tokens: [{
         access: "auth",
-        token: jwt.sign({_id: userOneId, access: "auth"}, "abc").toString()
+        token: jwt.sign({_id: userOneId, access: "auth"}, process.env.SALT).toString()
     }]
 }, {
-    _id: usetTwoId,
+    _id: userTwoId,
     email: "secondUser@second.user",
-    password: "userTwoPass"
+    password: "userTwoPass",
+    tokens: [{
+        access: "auth",
+        token: jwt.sign({_id: userTwoId, access: "auth"}, process.env.SALT).toString()
+    }]
 }]
 
 const todos = [{
     _id: new mongoose.Types.ObjectId,
+    author: userOneId,
     text: "First test todo"
 }, {
     _id: new mongoose.Types.ObjectId,
-    text: "Second test todo"
+    text: "Second test todo",
+    author: userTwoId
 }];
 
 const populateTodos = (done) => {

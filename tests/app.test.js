@@ -16,6 +16,7 @@ describe("POST /todos", () => {
         var text = "Test todo text";
         request(app)
         .post("/todos")
+        .set("x-auth", users[0].tokens[0].token)
         .send({text})
         .expect(200)
         .expect((res) => {
@@ -36,6 +37,7 @@ describe("POST /todos", () => {
     it("should not create todo with invalid body data", done => {
        request(app)
        .post("/todos")
+       .set("x-auth", users[0].tokens[0].token)
        .send({})
        .expect(400)
        .expect(res => {
@@ -52,15 +54,33 @@ describe("POST /todos", () => {
            .catch(err => done(err));
        });
     });
+
+    it("Should not create todo for not autorized user", done => {
+        var text = "Test todo text";
+        request(app)
+        .post("/todos")
+        .send({text})
+        .expect(401)
+        .end((err, res) => {
+            if(err) {
+                return done(err);
+            }
+            Todo.find({text}).then((todos) => {
+                expect(todos).to.be.empty;
+                done();
+            }).catch(err => done(err));
+        });
+    });
 });
 
 describe("GET /todos", () => {
-    it("should get all todos", done => {
+    it("should get all todos for first user", done => {
        request(app)
        .get("/todos")
+       .set("x-auth", users[0].tokens[0].token)       
        .expect(200)
        .expect(res => {
-           expect(res.body.todos).to.have.length(2);
+           expect(res.body.todos).to.have.length(1);
        })
        .end((err,res) => {
            if(err) {
@@ -69,12 +89,26 @@ describe("GET /todos", () => {
            done();
        });
     });
+
+    it("should not get todos for unauthorized user", done => {
+       request(app)
+       .get("/todos")
+       .expect(401)
+       .end((err,res) => {
+            if(err) {
+                return done(err);
+            }
+                
+            done();
+       });
+    });
 });
 
 describe("GET /todos/:id", () => {
     it("should return first mock of todo", done => {
         request(app)
         .get(`/todos/${todos[0]._id}`)
+        .set("x-auth", users[0].tokens[0].token)        
         .expect(200)
         .expect(res => {
             expect(res.body.todo._id).to.equal(todos[0]._id.toHexString());
@@ -92,10 +126,11 @@ describe("GET /todos/:id", () => {
         var id = new mongoose.Types.ObjectId;
         request(app)
         .get(`/todos/${id}`)
+         .set("x-auth", users[0].tokens[0].token)        
         .expect(res => {
             expect(res.todo).to.be.undefined;
         })
-        .expect(404)
+        .expect(401)
         .end((err, res) => {
             if(err) {
                 return done(err);
@@ -107,7 +142,8 @@ describe("GET /todos/:id", () => {
     it("should be invalid id", done => {
         request(app)
         .get('/todos/1234')
-        .expect(400)
+        .set("x-auth", users[0].tokens[0].token)        
+        .expect(401)
         .end((err, res) => {
             if(err) {
                 return done(err);
@@ -119,14 +155,15 @@ describe("GET /todos/:id", () => {
 
 describe("DELETE /todos/:id", () => {
    it("Should delete todo", done => {
-       var id = todos[0]._id;
-       request(app)
-       .delete(`/todos/${id}`)
-       .expect(200)
-       .expect(res => {
-           expect(res.body.todo._id).to.equal(todos[0]._id.toHexString());
-       })
-       .end((err, res) => {
+        var id = todos[0]._id;
+        request(app)
+        .delete(`/todos/${id}`)
+        .set("x-auth", users[0].tokens[0].token)       
+        .expect(200)
+        .expect(res => {
+            expect(res.body.todo._id).to.equal(todos[0]._id.toHexString());
+        })
+        .end((err, res) => {
            if(err) {
                return done(err);
            }
@@ -142,11 +179,12 @@ describe("DELETE /todos/:id", () => {
    });
    
    it("should be invalid id", done => {
-       request(app)
-       .delete("/todos/1234")
-       .expect(400)
-       .expect(res => {
-       }).end((err, res) => {
+        request(app)
+        .delete("/todos/1234")
+        .set("x-auth", users[0].tokens[0].token)              
+        .expect(401)
+        .expect(res => {
+        }).end((err, res) => {
            if(err) {
                return done(err);
            }
@@ -160,13 +198,13 @@ describe("DELETE /todos/:id", () => {
    });
    
    it("should not exist in database", done => {
-      var id = new mongoose.Types.ObjectId();
-      
-      request(app)
-      .delete(`/todos/${id}`)
-      .expect(404)
-      .expect(res => expect(res.body.todo).to.be.undefined)
-      .end((err, res) => {
+        var id = new mongoose.Types.ObjectId();
+        request(app)
+        .delete(`/todos/${id}`)  
+        .set("x-auth", users[0].tokens[0].token)       
+        .expect(401)
+        .expect(res => expect(res.body.todo).to.be.undefined)
+        .end((err, res) => {
           if(err) {
               return done(err);
           }
@@ -189,6 +227,7 @@ describe("PUT /todos/:id", () => {
 
         request(app)
         .put(`/todos/${todos[0]._id}`)
+        .set("x-auth", users[0].tokens[0].token)
         .send(updatedTodo)
         .expect(200)
         .expect(res => {
@@ -212,6 +251,7 @@ describe("PUT /todos/:id", () => {
 
         request(app)
         .put(`/todos/${todos[0]._id}`)
+        .set("x-auth", users[0].tokens[0].token)                
         .expect(200)
         .expect(res => {
             expect(res.body.todo.script).to.be.undefined;
@@ -227,7 +267,8 @@ describe("PUT /todos/:id", () => {
     it("Should be malformed id", done => {
         request(app)
         .put("/todos/12345")
-        .expect(400)
+        .set("x-auth", users[0].tokens[0].token)       
+        .expect(401)
         .end(err => {
             if(err) {
                 return done(err);
@@ -241,6 +282,7 @@ describe("PUT /todos/:id", () => {
 
         request(app)
         .put(`/todo/${id}`)
+        .set("x-auth", users[0].tokens[0].token)       
         .expect(404)
         .end(err => {
             if(err) {
@@ -414,7 +456,7 @@ describe("/POST users/login", () => {
 
             User.findById(users[1]._id)
             .then(user => {
-                expect(user.tokens[0]).to.include({
+                expect(user.tokens[1]).to.include({
                     access: "auth",
                     token: res.headers["x-auth"]
                 })
@@ -439,7 +481,7 @@ describe("/POST users/login", () => {
             expect(res.headers["x-auth"]).to.not.exist;
             User.findById(users[1]._id)
             .then(user => {
-                expect(user.tokens).to.have.length(0);
+                expect(user.tokens).to.have.length(1);
                 done();
             })
             .catch(err => {

@@ -8,14 +8,15 @@ const express = require("express"),
 var {mongoose} = require("./database/db"),
     {Todo} = require("./models/todo"),
     {User} = require("./models/user"),
-    {authenticate} = require("./middleware/authenticate");
+    {authenticate, isAuthor} = require("./middleware/authenticate");
       
 app.use(bodyParser.json());
 
-app.post("/todos", (req, res) => {
+app.post("/todos", authenticate, (req, res) => {
 
     var body = _.pick(req.body, ["text"]);
     var todo = new Todo({
+        author: res.locals.user._id,
         text: body.text
     });
 
@@ -26,15 +27,17 @@ app.post("/todos", (req, res) => {
     });
 });
 
-app.get("/todos", (req, res) => {
-    Todo.find().then(todos => {
+app.get("/todos", authenticate, (req, res) => {
+    Todo.find({
+        author: res.locals.user._id
+    }).then(todos => {
         res.send({todos});
     }, err => {
         res.status(400).send(err);
     });
 });
 
-app.get("/todos/:id", (req, res) => {
+app.get("/todos/:id", authenticate, isAuthor, (req, res) => {
     if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
         return res.status(400).send("Invalid id");
     }
@@ -50,7 +53,7 @@ app.get("/todos/:id", (req, res) => {
     });
 });
 
-app.delete("/todos/:id", (req, res) => {
+app.delete("/todos/:id", authenticate, isAuthor, (req, res) => {
     if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
         return res.status(400).send("Invalid id");
     }
@@ -65,7 +68,7 @@ app.delete("/todos/:id", (req, res) => {
     });
 });
 
-app.put("/todos/:id", (req, res) => {
+app.put("/todos/:id", authenticate, isAuthor, (req, res) => {
     var id = req.params.id;
     if(!mongoose.Types.ObjectId.isValid(req.params.id)) {
         return res.status(400).send("Invalid id");
